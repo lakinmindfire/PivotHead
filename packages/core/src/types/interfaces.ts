@@ -12,7 +12,10 @@ export interface Column {
 export interface SortConfig {
   field: string;
   direction: 'asc' | 'desc';
+  type?: 'measure' | 'dimension';
+  aggregation?: AggregationType;
 }
+
 export interface RowSize {
   index: number;
   height: number;
@@ -71,7 +74,7 @@ export interface Dimension {
 export interface PivotTableState<T> {
   data: T[];
   processedData: ProcessedData;
-  sortConfig: SortConfig | null;
+  sortConfig: SortConfig[];
   rows: AxisConfig[];
   columns: AxisConfig[];
   measures: MeasureConfig[];
@@ -99,6 +102,7 @@ export interface PivotTableConfig<T> {
   formatting?: { [key: string]: FormatOptions };
   defaultAggregation: AggregationType;
   isResponsive?: boolean;
+  initialSort?: SortConfig[];
 }
 
 export interface MeasureConfig {
@@ -107,6 +111,7 @@ export interface MeasureConfig {
   aggregation: AggregationType;
   format?: FormatOptions;
   formula?: (item: any) => number;
+  sortabled?: boolean;
 }
 
 export interface ProcessedData {

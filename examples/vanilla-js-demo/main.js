@@ -10,7 +10,6 @@
  * - Row reordering (drag and drop)
  */
 import { createHeader } from './header.js';
-import { conditionFormattingPopUp } from './conditionFormattingPopUp.js';
 if (typeof PivotheadCore === 'undefined') {
   console.error(
     'PivotheadCore is not defined. Make sure the library is loaded correctly.',
@@ -22,78 +21,7 @@ if (typeof PivotheadCore === 'undefined') {
 const { PivotEngine } = PivotheadCore;
 
 // Dummy data.
-const data = [
-  {
-    date: '2024-01-01',
-    product: 'Widget A',
-    region: 'North',
-    sales: 1000,
-    quantity: 50,
-  },
-  {
-    date: '2024-01-01',
-    product: 'Widget B',
-    region: 'South',
-    sales: 1500,
-    quantity: 75,
-  },
-  {
-    date: '2024-01-01',
-    product: 'Widget D',
-    region: 'North',
-    sales: 1300,
-    quantity: 70,
-  },
-  {
-    date: '2024-01-02',
-    product: 'Widget A',
-    region: 'East',
-    sales: 1200,
-    quantity: 60,
-  },
-  {
-    date: '2024-01-02',
-    product: 'Widget A',
-    region: 'East',
-    sales: 100,
-    quantity: 44,
-  },
-  {
-    date: '2024-01-02',
-    product: 'Widget C',
-    region: 'West',
-    sales: 800,
-    quantity: 40,
-  },
-  {
-    date: '2024-01-03',
-    product: 'Widget B',
-    region: 'North',
-    sales: 1800,
-    quantity: 90,
-  },
-  {
-    date: '2024-01-03',
-    product: 'Widget C',
-    region: 'South',
-    sales: 1100,
-    quantity: 55,
-  },
-  {
-    date: '2024-01-04',
-    product: 'Widget A',
-    region: 'West',
-    sales: 1300,
-    quantity: 65,
-  },
-  {
-    date: '2024-01-04',
-    product: 'Widget B',
-    region: 'East',
-    sales: 1600,
-    quantity: 80,
-  },
-];
+import { data2 as data } from './utils/testData.js';
 
 // Updated configuration for the pivot table
 const config = {
@@ -111,6 +39,7 @@ const config = {
         locale: 'en-US',
         decimals: 4
       },
+      sortable: true,
     },
     {
       uniqueName: 'quantity',
@@ -121,29 +50,61 @@ const config = {
         decimals: 2,
         locale: 'en-US'
       },
+      sortable: false,
     },
     {
       uniqueName: 'averageSale',
       caption: 'Average Sale',
       aggregation: 'avg',
       format: { 
+        type: 'number'
+      },
+      formula: (item) => item.sales / item.quantity,
+      sortable: true,
+    },
+    {
+      uniqueName: 'sales',
+      caption: 'Max Sale',
+      aggregation: 'max',
+      format: { 
         type: 'currency', 
         currency: 'USD',
         locale: 'en-US',
         decimals: 4
       },
-      formula: (item) => item.sales / item.quantity,
+      sortable: true,
+    },
+    {
+      uniqueName: 'sales',
+      caption: 'Min Sale',
+      aggregation: 'min',
+      format: { 
+        type: 'currency', 
+        currency: 'USD',
+        locale: 'en-US',
+        decimals: 4
+      },
+      sortable: true,
     },
   ],
   dimensions: [
-    { field: 'product', label: 'Product', type: 'string' },
-    { field: 'region', label: 'Region', type: 'string' },
-    { field: 'date', label: 'Date', type: 'date' },
-    { field: 'sales', label: 'Sales', type: 'number' },
-    { field: 'quantity', label: 'Quantity', type: 'number' },
+    { field: 'product', label: 'Product', type: 'string', sortable: true },
+    { field: 'region', label: 'Region', type: 'string', sortable: false },
+    { field: 'date', label: 'Date', type: 'date', sortable: true },
+    { field: 'sales', label: 'Sales', type: 'number', sortable: true },
+    { field: 'quantity', label: 'Quantity', type: 'number', sortable: false },
   ],
   defaultAggregation: 'sum',
   isResponsive: true,
+  // Add initial sort configuration
+  initialSort: [
+    {
+      field: "sales",
+      direction: "desc",
+      type: "measure",
+      aggregation: "sum",
+    },
+  ],
   groupConfig: {
     rowFields: ['product'],
     columnFields: ['region'],
@@ -162,6 +123,18 @@ const config = {
       // locale: 'en-US'
     },
     averageSale: { 
+      type: 'currency', 
+      currency: 'USD',
+      locale: 'en-US',
+      decimals: 4
+    },
+    maxSale: { 
+      type: 'currency', 
+      currency: 'USD',
+      locale: 'en-US',
+      decimals: 4
+    },
+    minSale: { 
       type: 'currency', 
       currency: 'USD',
       locale: 'en-US',
@@ -274,7 +247,7 @@ function renderTable() {
 
   const tbody = document.createElement('tbody');
   const rowFields = state.rows.map((r) => r.uniqueName);
-  const groupedData = groupData(data, rowFields);
+  const groupedData = groupData(state.data, rowFields);
 
   renderGroupedRows(tbody, groupedData, state, 0);
 
@@ -287,6 +260,8 @@ function renderTable() {
   tableWrapper.appendChild(table);
 
   container.appendChild(tableWrapper);
+    // Log the rendered data for debugging
+    console.log("Rendered data:", groupedData)
 }
 
 function renderGroupedRows(tbody, groups, state, level) {
@@ -329,21 +304,20 @@ function renderGroupedRows(tbody, groups, state, level) {
 
           if (columnItems.length > 0) {
             let aggregateValue;
-            if (measure.formula && typeof measure.formula === 'function') {
-              aggregateValue =
-                columnItems.reduce(
-                  (sum, item) => sum + measure.formula(item),
-                  0,
-                ) / columnItems.length;
+            if (measure.aggregation === 'max') {
+              aggregateValue = Math.max(...columnItems.map(item => engine.calculateMeasureValue(item, measure)));
+            } else if (measure.aggregation === 'min') {
+              aggregateValue = Math.min(...columnItems.map(item => engine.calculateMeasureValue(item, measure)));
+            } else if (measure.aggregation === 'count') {
+              aggregateValue = columnItems.length;
             } else {
               aggregateValue = columnItems.reduce(
-                (sum, item) => sum + (item[measure.uniqueName] || 0),
+                (sum, item) => sum + engine.calculateMeasureValue(item, measure),
                 0,
               );
-            }
-
-            if (measure.aggregation === 'avg') {
-              aggregateValue /= columnItems.length;
+              if (measure.aggregation === 'avg') {
+                aggregateValue /= columnItems.length;
+              }
             }
 
             td.textContent = engine.formatValue(
@@ -351,7 +325,7 @@ function renderGroupedRows(tbody, groups, state, level) {
               measure.uniqueName,
             );
 
-            //Apply condition formatting
+            // Apply condition formatting
             applyConditionalFormatting(td, aggregateValue, measure.uniqueName);
           } else {
             td.textContent = engine.formatValue(0, measure.uniqueName);
@@ -451,19 +425,29 @@ function renderTableHeader(thead, state) {
 
   // Add empty cell for row headers
   state.rows.forEach((row) => {
-    const emptyMeasureCell = document.createElement('th');
-    emptyMeasureCell.textContent = row.caption;
-    emptyMeasureCell.style.padding = '12px';
-    emptyMeasureCell.style.backgroundColor = '#f8f9fa';
-    emptyMeasureCell.style.borderBottom = '2px solid #dee2e6';
-    measureHeaderRow.appendChild(emptyMeasureCell);
+    const th = document.createElement('th');
+    th.style.padding = '12px';
+    th.style.backgroundColor = '#f8f9fa';
+    th.style.borderBottom = '2px solid #dee2e6';
+    th.style.cursor = 'pointer';
+
+    const headerContent = document.createElement('div');
+    headerContent.style.display = 'flex';
+    headerContent.style.alignItems = 'center';
+    headerContent.style.justifyContent = 'space-between';
+
+    const headerText = document.createElement('span');
+    headerText.textContent = row.caption;
+    headerContent.appendChild(headerText);
+
+    th.appendChild(headerContent);
+    measureHeaderRow.appendChild(th);
   });
 
   // Add measure headers for each column value
   uniqueColumnValues.forEach(() => {
     state.measures.forEach((measure) => {
       const th = document.createElement('th');
-      // th.textContent = measure.caption;
       th.style.padding = '12px';
       th.style.backgroundColor = '#f8f9fa';
       th.style.borderBottom = '2px solid #dee2e6';
@@ -478,8 +462,11 @@ function renderTableHeader(thead, state) {
       headerText.textContent = measure.caption;
       headerContent.appendChild(headerText);
 
-      // const sortIcon = createSortIcon(measure.uniqueName, 'column');
-      // headerContent.appendChild(sortIcon);
+      if (measure.sortable) {
+        const sortIcon = createSortIcon(measure.uniqueName, 'column');
+        headerContent.appendChild(sortIcon);
+        th.addEventListener('click', () => handleSort(measure.uniqueName));
+      }
 
       th.appendChild(headerContent);
       measureHeaderRow.appendChild(th);
@@ -489,22 +476,52 @@ function renderTableHeader(thead, state) {
   thead.appendChild(measureHeaderRow);
 }
 
-//TODO : Uncomment when sort feature updated in pivot table
-// function createSortIcon(field, axis) {
-//   const icon = document.createElement('span');
-//   icon.innerHTML = '&#8645;'; // Unicode for up-down arrow
-//   icon.style.cursor = 'pointer';
-//   icon.style.marginLeft = '5px';
+function handleSort(field, direction) {
+  console.log(`Sorting by field: ${field}`);
+ // Get current state
+ const state = engine.getState()
+ const currentSortConfig = state.sortConfig?.[0]
 
-//   icon.addEventListener('click', () => {
-//     const currentDirection = engine.getState().sortConfig?.direction;
-//     const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
-//     engine.sort(field, newDirection, axis);
-//     renderTable();
-//   });
+ // Toggle direction if clicking the same field
+ let newDirection = direction || "asc"
+ if (currentSortConfig && currentSortConfig.field === field) {
+   newDirection = currentSortConfig.direction === "asc" ? "desc" : "asc"
+ }
 
-//   return icon;
-// }
+ // Call engine's sort method
+ engine.sort(field, newDirection)
+
+ // Force a re-render of the table
+ renderTable()
+
+ // Log the sort operation for debugging
+ console.log(`Sorting by ${field} in ${newDirection} order`)
+}
+
+function createSortIcon(field, axis) {
+  const icon = document.createElement('span');
+  const state = engine.getState();
+  const currentSort = state.sortConfig?.[0];
+  
+  // Set the appropriate sort icon based on current sort state
+  if (currentSort && currentSort.field === field) {
+    icon.innerHTML = currentSort.direction === 'asc' ? '&#8593;' : '&#8595;';
+  } else {
+    icon.innerHTML = '&#8645;'; // Default unsorted state
+  }
+  
+  icon.style.cursor = 'pointer';
+  icon.style.marginLeft = '5px';
+
+  icon.addEventListener('click', (e) => {
+    e.stopPropagation(); // Prevent event bubbling
+    const currentDirection = state.sortConfig?.[0]?.direction;
+    const newDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+    handleSort(field, newDirection);
+  });
+
+  return icon;
+}
 
 
 function updateFormatting(newConfig) {

@@ -1,53 +1,80 @@
-import { Row, AggregationType } from '../types/interfaces';
+import type { AggregationType } from '../types/interfaces';
 
-export function calculateAggregates<T extends Row>(
+export function calculateAggregates<T>(
   items: T[],
-  measure: keyof T,
-  aggregationType: AggregationType,
+  field: keyof T,
+  type: AggregationType,
 ): number {
-  if (items.length === 0) {
-    return 0;
-  }
+  if (!items || items.length === 0) return 0;
 
-  const validValues = items
-    .map((item) => {
-      const value = Number(item[measure]);
-      if (isNaN(value)) {
-        return null;
-      }
-      return value;
-    })
-    .filter((value): value is number => value !== null);
+  const values = items.map((item) => Number(item[field]) || 0);
 
-  if (validValues.length === 0) {
-    return 0;
-  }
-
-  const sum = validValues.reduce((acc, value) => acc + value, 0);
-
-  let result: number;
-
-  switch (aggregationType) {
+  switch (type) {
     case 'sum':
-      result = sum;
-      break;
+      return values.reduce((sum, val) => sum + val, 0);
     case 'avg':
-      result = sum / validValues.length;
-      break;
-    case 'count':
-      result = validValues.length;
-      break;
+      return values.reduce((sum, val) => sum + val, 0) / values.length;
     case 'min':
-      result = Math.min(...validValues);
-      break;
+      return Math.min(...values);
     case 'max':
-      result = Math.max(...validValues);
-      break;
+      return Math.max(...values);
+    case 'count':
+      return values.length;
     default:
       return 0;
   }
-  return result;
 }
+
+// import { Row, AggregationType } from '../types/interfaces';
+
+// export function calculateAggregates<T extends Row>(
+//   items: T[],
+//   measure: keyof T,
+//   aggregationType: AggregationType,
+// ): number {
+//   if (items.length === 0) {
+//     return 0;
+//   }
+
+//   const validValues = items
+//     .map((item) => {
+//       const value = Number(item[measure]);
+//       if (isNaN(value)) {
+//         return null;
+//       }
+//       return value;
+//     })
+//     .filter((value): value is number => value !== null);
+
+//   if (validValues.length === 0) {
+//     return 0;
+//   }
+
+//   const sum = validValues.reduce((acc, value) => acc + value, 0);
+
+//   let result: number;
+
+//   switch (aggregationType) {
+//     case 'sum':
+//       result = sum;
+//       break;
+//     case 'avg':
+//       result = sum / validValues.length;
+//       break;
+//     case 'count':
+//       result = validValues.length;
+//       break;
+//     case 'min':
+//       result = Math.min(...validValues);
+//       break;
+//     case 'max':
+//       result = Math.max(...validValues);
+//       break;
+//     default:
+//       return 0;
+//   }
+//   return result;
+// }
 
 {
   /*We'll use this function later while creating dropdown list for column */

@@ -15,7 +15,7 @@ export function processData<T extends Record<string, any>>(
   let processedData = [...config.data];
 
   if (sortConfig) {
-    processedData = applySort(processedData, sortConfig);
+    processedData = applySort(processedData, [sortConfig]);
   }
 
   let groups: Group[] = [];
